@@ -34,6 +34,54 @@ Windows: `gradlew.bat build fatjar`
 
 Grab the output from `build/libs/desynchronize-all.jar`
 
+### Go scanning component
+
+The extension now packages a small, local Go scanning service (`smugglerd`). The
+Java classes remain the Burp/JVM adapter and continue to provide the legacy
+scanner as a compatibility fallback while individual scan types are migrated.
+The default build embeds the current platform; release builds can use, for
+example, `./gradlew -PgoPlatforms=linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64 fatJar`.
+
+At load time the adapter selects the matching binary, extracts it into a private
+temporary directory, verifies its packaged SHA-256 digest, and starts it. Linux
+and macOS use a mode-0600 Unix socket. Windows uses a numeric loopback TCP
+listener. The service refuses non-loopback TCP binds, requires a random bearer
+token, accepts only versioned `scan` and `mutate` operations, and limits request
+size, concurrency and execution time. It never listens on an external interface.
+The child is stopped and its temporary directory removed when the extension is
+unloaded. If the current OS/architecture was not packaged, startup fails safely
+and the existing Java scanner remains available.
+
+Troubleshooting: check the extension output for startup errors, verify that the
+temporary directory is executable, and rebuild for the exact `GOOS/GOARCH`.
+Endpoint security products may prevent execution from a temporary directory.
+Do not expose the IPC socket or bearer token, and scan only authorized targets.
+
+### Standalone command-line scanner
+
+GitHub Releases include a `smuggler` executable for Linux, macOS, and Windows.
+It is a separate static Go command: it does not require Burp, `smugglerd`, a JVM,
+or third-party Go modules. Put one authorized `http://` or `https://` target on
+each line of `url.txt` (blank lines and lines beginning with `#` are ignored),
+then run:
+
+```shell
+smuggler -input url.txt -output results.jsonl -concurrency 4 -timeout 10s
+```
+
+Results use streaming JSON Lines so large lists do not have to be retained in
+memory. Use `-input -` or `-output -` for stdin/stdout, and use `-techniques`
+with a comma-separated technique list to override the conservative defaults.
+Exit with `Ctrl+C` to cancel outstanding work. A status difference or probe
+error is a lead requiring manual confirmation, not proof of a vulnerability.
+Never use the batch mode against targets without explicit permission.
+
+Maintainers create a tag such as `v3.2.0` to run the Release workflow. It tests
+the Go tree, cross-compiles the standalone CLI and daemon, builds the Java 21
+extension with every supported daemon, publishes archives and SHA-256 checksum
+files, and creates the GitHub Release automatically. The workflow can also be
+started manually for an existing tag.
+
 ### Use
 Right click on a request and click `Launch Smuggle probe`, then watch the Organizer and extension's output pane under `Extender->Extensions->HTTP Request Smuggler`
 

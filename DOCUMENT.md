@@ -2,6 +2,49 @@
 
 This document provides a categorized breakdown of the features, gadgets, and smuggling techniques implemented in the HTTP Request Smuggler Burp Suite extension, based on an in-depth review of the source code and official documentation.
 
+## Hybrid runtime and migration status
+
+Burp integration remains a Java adapter; the Go core does not implement or
+depend on Montoya/JVM interfaces. The versioned IPC DTO carries a target, raw
+HTTP bytes, configuration, evidence exchanges, and neutral findings. Raw bytes
+are base64 encoded in JSON. `smugglerd` uses a bounded local Unix socket (or a
+loopback TCP socket on Windows), authentication, operation allowlisting, message
+limits, concurrency backpressure, and deadlines.
+
+The Go HTTP/1 transport writes caller-owned bytes directly to a socket, with
+explicit TLS, reuse, requests-per-connection, deadlines, response limits, and
+connection invalidation controls. It intentionally avoids Go's default HTTP
+client so malformed and duplicate headers survive. HTTP/2 attack traffic is not
+yet routed through Go: it remains on the Java fallback until a byte-exact frame
+layer and compatibility suite are complete.
+
+The initial migration includes the technique registry and byte mutations,
+parser-discrepancy result semantics, canary/reflection/correlation primitives,
+neutral reporting, and raw-probe orchestration. The Java implementations of all
+named scanners remain present and selectable as the compatibility path. They
+must not be deleted until manual scan, active scan, Organizer, Site Map, Turbo
+Intruder generation, and unload behavior have been verified in Community,
+Professional, and DAST. These product-level checks require licensed Burp
+environments and are intentionally not claimed by the repository test suite.
+
+The daemon has no discovery endpoint and must never be made remotely reachable.
+Only scan systems for which you have explicit authorization. On an unsupported
+platform, or following extraction/digest/startup failure, Java fallback is the
+safe behavior. Unloading destroys the child process and extracted files.
+
+The independent `smuggler` command consumes URL lists and emits one JSON object
+per target. It is built entirely from the Go standard library plus repository
+packages and connects directly through the raw HTTP/1 transport; it neither
+starts nor depends on the IPC daemon. Target concurrency is bounded, each probe
+has a deadline, response bodies are capped, and every connection is discarded
+after a probe. Its initial status-difference signal is deliberately labelled as
+a potential issue and requires manual confirmation.
+
+Tagged releases are produced by `.github/workflows/release.yml`. The workflow
+runs tests and vetting, cross-compiles static Linux/macOS/Windows CLI and daemon
+binaries, emits SHA-256 checksum files, builds the Java 21 Burp artifact with all
+supported daemon variants, and attaches the resulting files to GitHub Releases.
+
 ---
 
 ## Core Features
