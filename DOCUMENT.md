@@ -32,6 +32,21 @@ Only scan systems for which you have explicit authorization. On an unsupported
 platform, or following extraction/digest/startup failure, Java fallback is the
 safe behavior. Unloading destroys the child process and extracted files.
 
+The independent `smuggler` command consumes URL lists and emits one JSON object
+per target. It is built entirely from the Go standard library plus repository
+packages and connects directly through the raw HTTP/1 transport; it neither
+starts nor depends on the IPC daemon. Target concurrency is bounded, each probe
+has a deadline, response bodies are capped, and every connection is discarded
+after a probe. Its initial status-difference signal is deliberately labelled as
+a potential issue and requires manual confirmation.
+
+Tagged releases are produced by `.github/workflows/release.yml`. The workflow
+runs tests and vetting, cross-compiles static Linux/macOS/Windows CLI and daemon
+binaries, emits SHA-256 checksum files, builds the Java 21 Burp artifact with all
+supported daemon variants, and attaches the resulting files to GitHub Releases.
+
+=======
+
 ---
 
 ## Core Features
