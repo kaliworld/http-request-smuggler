@@ -34,6 +34,29 @@ Windows: `gradlew.bat build fatjar`
 
 Grab the output from `build/libs/desynchronize-all.jar`
 
+### Go scanning component
+
+The extension now packages a small, local Go scanning service (`smugglerd`). The
+Java classes remain the Burp/JVM adapter and continue to provide the legacy
+scanner as a compatibility fallback while individual scan types are migrated.
+The default build embeds the current platform; release builds can use, for
+example, `./gradlew -PgoPlatforms=linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64 fatJar`.
+
+At load time the adapter selects the matching binary, extracts it into a private
+temporary directory, verifies its packaged SHA-256 digest, and starts it. Linux
+and macOS use a mode-0600 Unix socket. Windows uses a numeric loopback TCP
+listener. The service refuses non-loopback TCP binds, requires a random bearer
+token, accepts only versioned `scan` and `mutate` operations, and limits request
+size, concurrency and execution time. It never listens on an external interface.
+The child is stopped and its temporary directory removed when the extension is
+unloaded. If the current OS/architecture was not packaged, startup fails safely
+and the existing Java scanner remains available.
+
+Troubleshooting: check the extension output for startup errors, verify that the
+temporary directory is executable, and rebuild for the exact `GOOS/GOARCH`.
+Endpoint security products may prevent execution from a temporary directory.
+Do not expose the IPC socket or bearer token, and scan only authorized targets.
+
 ### Use
 Right click on a request and click `Launch Smuggle probe`, then watch the Organizer and extension's output pane under `Extender->Extensions->HTTP Request Smuggler`
 
