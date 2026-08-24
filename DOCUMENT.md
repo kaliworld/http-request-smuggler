@@ -45,6 +45,8 @@ runs tests and vetting, cross-compiles static Linux/macOS/Windows CLI and daemon
 binaries, emits SHA-256 checksum files, builds the Java 21 Burp artifact with all
 supported daemon variants, and attaches the resulting files to GitHub Releases.
 
+=======
+
 ---
 
 ## Core Features

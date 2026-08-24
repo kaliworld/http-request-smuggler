@@ -57,6 +57,7 @@ temporary directory is executable, and rebuild for the exact `GOOS/GOARCH`.
 Endpoint security products may prevent execution from a temporary directory.
 Do not expose the IPC socket or bearer token, and scan only authorized targets.
 
+
 ### Standalone command-line scanner
 
 GitHub Releases include a `smuggler` executable for Linux, macOS, and Windows.
@@ -81,6 +82,8 @@ the Go tree, cross-compiles the standalone CLI and daemon, builds the Java 21
 extension with every supported daemon, publishes archives and SHA-256 checksum
 files, and creates the GitHub Release automatically. The workflow can also be
 started manually for an existing tag.
+
+=======
 
 ### Use
 Right click on a request and click `Launch Smuggle probe`, then watch the Organizer and extension's output pane under `Extender->Extensions->HTTP Request Smuggler`
