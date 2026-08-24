@@ -12,6 +12,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener, Bur
     private static final String version = "3.1.0";
     public boolean unloaded = false;
     static ConcurrentHashMap<String, Boolean> hostsToSkip = BulkScan.hostsToSkip;
+    private final GoScannerProcess goScanner = new GoScannerProcess();
 
     @Override
     public void initialize(MontoyaApi api) {
@@ -20,6 +21,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener, Bur
         BulkUtilities.registerContextMenu();
         api.http().registerHttpHandler(new LiveScan());
         api.scanner().registerActiveScanCheck(new BurpScanWrapper(), ScanCheckType.PER_REQUEST);
+        goScanner.start();
     }
 
     @Override
@@ -31,6 +33,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener, Bur
         Utilities.callbacks.registerExtensionStateListener(this);
 
         new DesyncBox();
+        goScanner.start();
 
         new ParserDiscrepancyScan("Parser discrepancy scan");
         new HeaderRemovalScan("Header removal");
@@ -70,6 +73,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener, Bur
     public void extensionUnloaded() {
         Utilities.log("Aborting all attacks");
         Utilities.unloaded.set(true);
+        goScanner.stop();
     }
 
 }
