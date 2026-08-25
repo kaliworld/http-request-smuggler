@@ -1,4 +1,5 @@
 apply plugin: 'java-library'
+import java.security.MessageDigest
 
 sourceCompatibility = 21
 targetCompatibility = 21
@@ -21,9 +22,30 @@ sourceSets {
         }
         resources {
             srcDir 'resources'
+            srcDir "$buildDir/generated/smugglerd"
         }
     }
 }
+
+def goTargets = (findProperty('goPlatforms') ?: "${System.getProperty('os.name').toLowerCase().contains('win') ? 'windows' : System.getProperty('os.name').toLowerCase().contains('mac') ? 'darwin' : 'linux'}/${System.getProperty('os.arch') in ['amd64', 'x86_64'] ? 'amd64' : 'arm64'}").split(',')
+
+tasks.register('buildGoBinaries') {
+    inputs.files(fileTree('.') { include 'go.mod', 'cmd/**/*.go', 'internal/**/*.go' })
+    outputs.dir("$buildDir/generated/smugglerd")
+    doLast {
+        goTargets.each { target ->
+            def (goos, goarch) = target.trim().split('/')
+            def suffix = goos == 'windows' ? '.exe' : ''
+            def output = file("$buildDir/generated/smugglerd/native/${goos}-${goarch}/smugglerd${suffix}")
+            output.parentFile.mkdirs()
+            exec { environment 'GOOS', goos; environment 'GOARCH', goarch; commandLine 'go', 'build', '-trimpath', '-o', output, './cmd/smugglerd' }
+            def digest = MessageDigest.getInstance('SHA-256').digest(output.bytes).encodeHex().toString()
+            file(output.path + '.sha256').text = digest + '\n'
+        }
+    }
+}
+
+tasks.named('processResources') { dependsOn tasks.named('buildGoBinaries') }
 
 archivesBaseName = ('desynchronize-all')
 

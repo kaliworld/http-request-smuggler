@@ -11,3 +11,5 @@ ShortDescription: Helps you launch HTTP Request Smuggling attacks, supports scan
 EntryPoint: desynchronize-all.jar
 BuildCommand: ./gradlew fatJar
 SupportedProducts: Pro, Community, Dast
+Runtime-Component: smugglerd (Go; loopback/Unix-socket only; Java fallback on unsupported platforms)
+Native-Platforms: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64

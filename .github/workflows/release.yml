@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: go vet ./...
+
+  binaries:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build standalone CLI and daemon
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          suffix=""; [ "$GOOS" = windows ] && suffix=".exe"
+          dir="dist/http-request-smuggler-${RELEASE_TAG}-${GOOS}-${GOARCH}"
+          mkdir -p "$dir"
+          go build -trimpath -ldflags "-s -w -X main.version=${RELEASE_TAG}" -o "$dir/smuggler${suffix}" ./cmd/smuggler
+          go build -trimpath -ldflags "-s -w" -o "$dir/smugglerd${suffix}" ./cmd/smugglerd
+          cp README.md LICENSE "$dir/"
+          cd dist
+          if [ "$GOOS" = windows ]; then
+            zip -r "$(basename "$dir").zip" "$(basename "$dir")"
+            sha256sum "$(basename "$dir").zip" > "checksums-${GOOS}-${GOARCH}.txt"
+          else
+            tar -czf "$(basename "$dir").tar.gz" "$(basename "$dir")"
+            sha256sum "$(basename "$dir").tar.gz" > "checksums-${GOOS}-${GOARCH}.txt"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums-*.txt
+          if-no-files-found: error
+
+  jar:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build extension with all native daemons
+        run: ./gradlew -PgoPlatforms=linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64 clean fatJar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: burp-extension
+          path: build/libs/desynchronize-all.jar
+          if-no-files-found: error
+
+  release:
+    needs: [binaries, jar]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release create "$TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "$TAG"
